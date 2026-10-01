@@ -127,11 +127,22 @@ contract so v1.1 doesn't break it; the sampler and prompts just don't emit `cont
 `make numbers`, commit fixtures/baselines/report · h8–10 README, 20 audit labels, `make demo`
 rehearsal. **Hard stop at h10**; at the stop, commit and `git tag pre-trial-2026-09-30`.
 
-## 8. `questions.yaml` freezes in Phase 0
+## 8. `questions.yaml` freeze, refined
 
 It is upstream of every transcript, so it freezes alongside `user_agent.txt` and
-`interviewer_followup.txt`. The starter text is replaced during Phase 0. **No real simulation
-until it is confirmed.**
+`interviewer_followup.txt`, and its starter text is replaced during Phase 0.
+
+**Refinement:** a strict freeze blocks the wrong thing. Aligner iteration is the #1 time risk
+and it does not care about question *text* — it needs transcripts, any transcripts. So:
+
+- **Dev-tier simulation (3 personas, starter questions) is allowed immediately.** Those
+  transcripts are explicitly throwaway and exist only to unblock aligner and sim-prompt
+  iteration.
+- **The full 12-persona simulation waits** until `questions.yaml` is confirmed, because that is
+  the run whose transcripts become fixtures and baselines.
+
+Persona generation does not depend on `questions.yaml` at all, so the 12 personas can be
+generated as soon as credentials exist.
 
 ---
 

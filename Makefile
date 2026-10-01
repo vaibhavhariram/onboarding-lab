@@ -43,7 +43,7 @@ smoke:
 
 numbers:
 	$(UV) run lab run --config lab.yaml
-	$(UV) run python scripts/numbers.py
+	$(UV) run python scripts/regen_numbers.py
 
 audit:
 	$(UV) run lab audit --sample 20

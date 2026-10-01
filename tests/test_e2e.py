@@ -153,35 +153,38 @@ def test_worse_prompt_is_actually_worse() -> None:
 
 # -- the Phase 1+ gate --------------------------------------------------------
 
-PHASE_1 = pytest.mark.skip(reason="pipeline lands in Phase 1; this is the merge gate for it")
+
+def phase_gate(waiting_on: str):
+    """Skip with a reason that names exactly what the test waits on."""
+    return pytest.mark.skip(reason=f"waits on {waiting_on}; this is its merge gate")
 
 
-@PHASE_1
+@phase_gate("Phase 1 track A (personas, sim, extract, score)")
 def test_two_personas_through_lab_run_on_the_fake_provider() -> None:
     """Every artifact exists, validates against the models, and joins by id."""
 
 
-@PHASE_1
+@phase_gate("Phase 1 track C (score/metrics.py aggregation)")
 def test_aggregate_carries_every_metric_key() -> None:
     """Against metrics_schema.expected_keys, not a hardcoded list."""
 
 
-@PHASE_1
+@phase_gate("Phase 1 track D (report/render.py)")
 def test_report_and_summary_render() -> None:
     """index.html and summary.md, from committed fixtures, with no API key."""
 
 
-@PHASE_1
+@phase_gate("Phase 1 tracks C and D (score/floor.py plus diff rendering)")
 def test_diff_exits_one_when_the_candidate_is_worse() -> None:
     """Fake variance is zero, so the floor is its 0.005 minimum; the fake
     candidate must be worse by a wide margin so this cannot flake."""
 
 
-@PHASE_1
+@phase_gate("Phase 1 track C (score/metrics.py denominators)")
 def test_judge_errors_are_excluded_from_every_denominator() -> None:
     """The regression test for the bug class this project is defined against."""
 
 
-@PHASE_1
+@phase_gate("Phase 1 track A (run manifest and failures.jsonl)")
 def test_dropped_persona_appears_in_failures_and_the_manifest() -> None:
     """A silent drop changes every number in the report."""
