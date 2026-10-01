@@ -57,7 +57,8 @@ def main() -> int:
     # a broken README fails here rather than at the end of a paid run.
     replace_block(readme, read_block(readme))
     print(
-        "regen_numbers.py: marker contract OK. Aggregate reading lands in Phase 3; no figures written.",
+        "regen_numbers.py: marker contract OK. Aggregate reading lands in "
+        "Phase 3; no figures written.",
         file=sys.stderr,
     )
     return 0
