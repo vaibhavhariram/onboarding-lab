@@ -1,0 +1,52 @@
+# Question script. One of the three files a team swaps in (with
+# prompts/extract.txt and schema.json) to make the numbers theirs.
+#
+# This is a generic starter script. Replace the question TEXT with a real
+# onboarding walkthrough; keep the ids and the targets structure, because
+# per-question yield is reported by id and `targets` drives the follow-up policy.
+#
+# Frozen before the first real simulation: this file is upstream of every
+# transcript, so changing it invalidates all of them (PLAN.md amendment 8).
+script_id: intake-v1
+followup_trigger_words: 40
+questions:
+  - question_id: q01
+    text: "Tell me about where you grew up and what your family was like."
+    targets: [location, life_events, values]
+    max_followups: 1
+  - question_id: q02
+    text: "What does a typical week look like for you right now?"
+    targets: [occupation, interests, communication_style]
+    max_followups: 1
+  - question_id: q03
+    text: "What do you do for work, and how do you feel about it?"
+    targets: [occupation, values]
+    max_followups: 1
+  - question_id: q04
+    text: "What are you most passionate about outside of work?"
+    targets: [interests, values]
+    max_followups: 1
+  - question_id: q05
+    text: "Tell me about a past relationship that shaped how you think about love."
+    targets: [life_events, partner_preferences, dealbreakers]
+    max_followups: 1
+  - question_id: q06
+    text: "What are you looking for in a partner right now?"
+    targets: [relationship_goal, partner_preferences]
+    max_followups: 1
+  - question_id: q07
+    text: "What are your non-negotiables?"
+    targets: [dealbreakers, wants_kids, religion_importance]
+    max_followups: 1
+  - question_id: q08
+    text: "How do you like to spend a free Sunday?"
+    targets: [interests, communication_style]
+    max_followups: 1
+  - question_id: q09
+    text: "What role do family, faith, or tradition play in your life?"
+    targets: [religion_importance, values, has_kids]
+    max_followups: 1
+  - question_id: q10
+    text: "Where do you see your life in five years?"
+    targets: [relationship_goal, wants_kids, life_events]
+    max_followups: 1

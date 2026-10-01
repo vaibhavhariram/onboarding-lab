@@ -1,0 +1,12 @@
+Extract a profile from this onboarding transcript into the JSON Schema below.
+
+Infer likely values from context when the user did not state them directly. Fill
+in as many fields as you reasonably can, so the profile is complete.
+
+Transcript:
+{transcript}
+
+Schema:
+{schema}
+
+Return JSON only. Do not include internal or system XML tags in your response.

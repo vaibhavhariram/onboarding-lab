@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/onboarding-lab/profile.schema.json",
+  "title": "Intake profile (stand-in)",
+  "description": "Stand-in profile schema. A team swaps in their own and the numbers become theirs. Fields are chosen so every scoring path is exercised: exact-match scalars, judged free text, and arrays.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "age": { "type": "integer", "minimum": 18, "maximum": 120 },
+    "location": { "type": "string" },
+    "occupation": { "type": "string" },
+    "relationship_goal": { "enum": ["casual", "long_term", "marriage", "unsure"] },
+    "wants_kids": { "enum": ["yes", "no", "unsure"] },
+    "has_kids": { "type": "boolean" },
+    "religion_importance": { "enum": ["none", "low", "medium", "high"] },
+    "values": { "type": "array", "items": { "type": "string" } },
+    "interests": { "type": "array", "items": { "type": "string" } },
+    "life_events": { "type": "array", "items": { "type": "string" } },
+    "dealbreakers": { "type": "array", "items": { "type": "string" } },
+    "partner_preferences": { "type": "array", "items": { "type": "string" } },
+    "communication_style": { "type": "string" },
+    "summary": { "type": "string" }
+  }
+}

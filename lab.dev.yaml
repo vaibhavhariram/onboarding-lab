@@ -1,0 +1,45 @@
+# Inner dev loop: 3 personas, one noise level, one tag, no floor, no
+# stability. ~90 seconds and a few cents, so prompt iteration is cheap.
+# The full run is lab.yaml.
+run_name: dev
+personas: 3
+seed: 7
+script: questions.yaml
+noise_rates:
+- 0.0
+concurrency: 8
+models:
+  default: claude-sonnet-5-5
+  fallback: claude-sonnet-5
+  fallback_thinking: disabled
+roles:
+  persona_gen:
+    thinking: between_tools
+    effort: low
+    max_tokens: 8000
+  user_agent:
+    thinking: between_tools
+    effort: low
+    max_tokens: 1500
+    cache_system: true
+  interviewer_followup:
+    thinking: between_tools
+    effort: low
+    max_tokens: 500
+  extract:
+    thinking: between_tools
+    effort: low
+    max_tokens: 4000
+  aligner:
+    thinking: between_tools
+    effort: medium
+    max_tokens: 4000
+sim:
+  seed: 1
+extraction:
+  prompt: prompts/extract.txt
+  schema: schema.json
+  tag: v1
+stability:
+  enabled: false
+floor_runs: 0

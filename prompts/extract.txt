@@ -1,0 +1,14 @@
+Extract a profile from this onboarding transcript into the JSON Schema below.
+
+Include only information the user stated. Omit anything not stated. Use "unsure"
+only where the schema offers it as a value and the user genuinely did not say.
+
+Do not infer. If the user did not say where they live, there is no location.
+
+Transcript:
+{transcript}
+
+Schema:
+{schema}
+
+Return JSON only. Do not include internal or system XML tags in your response.

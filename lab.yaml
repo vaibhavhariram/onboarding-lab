@@ -1,0 +1,62 @@
+# Default run config. `make numbers` runs this once and commits the result.
+run_name: default
+personas: 12
+seed: 7
+script: questions.yaml
+
+# The noise axis is cheap: it reuses transcripts and costs only extraction and
+# judging per level. The persona axis is the expensive one.
+noise_rates: [0.0, 0.05, 0.1, 0.2]
+concurrency: 8
+
+models:
+  default: claude-sonnet-5-5
+  # Used if `make smoke` shows the default is unavailable or refuses too often.
+  fallback: claude-sonnet-5
+  fallback_thinking: disabled
+
+# Per-role model parameters. These are part of the cache key and the recorded
+# provenance, so changing one invalidates the artifacts it produced.
+roles:
+  persona_gen:
+    thinking: between_tools
+    effort: low
+    max_tokens: 8000
+  user_agent:
+    thinking: between_tools
+    effort: low
+    max_tokens: 1500
+    # The bio and fact sheet are byte-stable across every turn of a persona and
+    # are the bulk of all input tokens, so this is the one prefix worth caching.
+    cache_system: true
+  interviewer_followup:
+    thinking: between_tools
+    effort: low
+    max_tokens: 500
+  extract:
+    # The system under test. Effort is pinned and declared: it must be identical
+    # between baseline and candidate or the diff measures the wrong thing.
+    thinking: between_tools
+    effort: low
+    max_tokens: 4000
+  aligner:
+    # Span selection is the accuracy-critical step, so it gets more effort.
+    thinking: between_tools
+    effort: medium
+    max_tokens: 4000
+
+sim:
+  seed: 1
+
+extraction:
+  prompt: prompts/extract.txt
+  schema: schema.json
+  tag: v1
+
+stability:
+  # Derived from the floor runs by pairwise Jaccard; no extra simulation pass.
+  enabled: true
+
+# Five, not three: a standard deviation from n=3 is a poor variance estimate,
+# and the floor is what makes the diff gate sound.
+floor_runs: 5

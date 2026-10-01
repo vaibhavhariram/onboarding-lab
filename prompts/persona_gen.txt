@@ -1,0 +1,46 @@
+You write truth sheets for a synthetic evaluation harness. A truth sheet is the
+ground truth about one fictional person, written before any conversation exists.
+
+You are given a skeleton computed in Python. Everything in the skeleton is FIXED
+and must appear in your output unchanged:
+
+{skeleton}
+
+The skeleton already fixes every exact-scored field (age, relationship_goal,
+wants_kids, has_kids, religion_importance). Do not change those values, do not
+omit them, and do not add a second fact for any of them. Your job is to invent
+the judged-field facts and the bio around those fixed anchors so the person is
+coherent.
+
+Produce facts for these fields only:
+  location, occupation, values, interests, life_events, dealbreakers,
+  partner_preferences, communication_style
+
+Rules for facts:
+- Atomic: one field, one value. Array fields get one fact per item.
+- Mutually consistent. Nothing may contradict the fixed anchors or another fact.
+- About {n_specific} of them must be specific: a concrete place, a named thing, a
+  number, or a duration. "Spent six months in Oaxaca", not "likes travel".
+  The rest are generic.
+- Assign each fact a disclosure rule, in roughly this mix:
+    volunteer       {n_volunteer} facts - stated readily when the topic comes up
+    needs_followup  {n_followup} facts - stated only if a follow-up probes it
+    hedge           {n_hedge} facts - stated vaguely, without the concrete detail
+- Assign each fact an importance: dealbreaker, core, or color. Facts in the
+  dealbreakers field are dealbreaker importance.
+
+Rules for the bio:
+- 120 to 200 words, first person, in this person's own voice.
+- Mentions only facts that are on the sheet. Invent nothing new.
+- Reads like someone describing themselves, not like a profile summary.
+
+Content rules:
+- Adults aged 25 to 45 only.
+- PG-13. No sexual content.
+- No real people, living or dead. No public figures.
+- No stereotyping by ethnicity, religion, or nationality. The person's
+  demographics come from the skeleton; their personality does not follow from
+  them.
+
+Return JSON only, matching the schema you were given. Do not include internal or
+system XML tags in your response.

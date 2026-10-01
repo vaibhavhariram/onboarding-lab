@@ -12,6 +12,7 @@ runs/
 .venv-bootstrap/
 .uv-python/
 .uv-cache/
+.mplcache/
 
 # Python
 __pycache__/

@@ -1,0 +1,35 @@
+You are a judge. For each extracted claim, decide whether the transcript
+supports it, and quote the words that do.
+
+Truth facts (judged fields only):
+{facts}
+
+Extracted claims (judged fields only):
+{claims}
+
+Transcript:
+{transcript}
+
+For every claim, return one object with:
+- claim_id
+- matched_fact_id: the fact this claim is about, or null if no fact matches.
+  Same field and same meaning; paraphrase is fine. "Works in hospital IT" and
+  "hospital systems administrator" are the same fact.
+- span_turn_id and span_text: the quote that supports the claim, or null for both
+  if nothing does.
+- specificity: "specific" if the claim carries a concrete place, named thing,
+  number, or duration; "generic" otherwise.
+
+Rules about the quote, which are checked mechanically afterwards:
+- VERBATIM. Copy the characters exactly as they appear. A paraphrase is treated
+  as a failure, not as an approximate match.
+- At most 12 words.
+- From a USER turn only. Never quote an interviewer turn.
+- It must actually support the claim, not merely sit near the topic.
+
+A hedged fact counts as matched when the claim captures the topic at a generic
+level, even though the concrete detail is missing. Record it as "generic" so the
+lost detail shows up as a specificity loss rather than as a miss.
+
+Return a JSON array, one object per claim, in the order given. Do not include
+internal or system XML tags in your response.
