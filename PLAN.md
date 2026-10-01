@@ -100,9 +100,9 @@ and final** `span_invalid` rates. This is the plan's own #1 time risk — models
 
 ## 6. Durable context (first step of Phase 0)
 
-Committed: `PLAN.md` (this file), `docs/SPEC.md` (spec §1–6 only, §0 omitted entirely,
-"~27-minute" replaced with "long"), `CLAUDE.md` (working agreement, never-cut list, cut order,
-pointers). No committed file references the private context.
+Committed: `PLAN.md` (this file), `docs/SPEC.md` (spec §1–6 only, §0 omitted entirely, with
+specifics about the interview generalised), `CLAUDE.md` (working agreement, never-cut list, cut
+order, pointers). No committed file references the private context.
 
 ## 7. Time — 17.5h serial against a ~10h budget
 
