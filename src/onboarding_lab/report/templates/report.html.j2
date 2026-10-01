@@ -1,0 +1,602 @@
+{#
+  Static report. Inline CSS, inline SVG, no JavaScript, no external URL — one
+  file a reviewer can open from a clone with no key and no network (PLAN.md D1).
+
+  Every number here comes from the aggregate. A metric absent from the aggregate
+  prints "n/a", never 0.0: a zero-denominator rate is omitted upstream with its
+  0 recorded in Scores.n, and 0.0 would read as "we got everything wrong"
+  (CLAUDE.md rule 6). With no audit labels the agreement row prints
+  "judge not yet audited" in red rather than a number nobody computed (§3.13).
+#}
+{%- macro value(m) -%}
+{% if m.present %}<span class="v">{{ m.value_text }}</span>{% else %}<span class="absent" title="absent from the aggregate: the denominator was zero or the metric was not computed">n/a</span>{% endif %}
+{%- endmacro -%}
+{%- macro interval(m) -%}
+{% if m.interval %}<span class="ci">{{ m.interval_text }}</span>{% elif m.present and m.kind == 'ratio' %}<span class="ci dim">ratio &mdash; no interval</span>{% endif %}
+{%- endmacro -%}
+{%- macro floor(m) -%}
+{% if m.floor is not none %}<span class="floor" title="measured run-to-run variance: max(2&sigma;, 0.005)">floor {{ m.floor_text }}</span>{% elif m.gated %}<span class="absent" title="no measured floor in the aggregate">floor n/a</span>{% endif %}
+{%- endmacro -%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding lab &mdash; extraction report{% if tag %} ({{ tag }}){% endif %}</title>
+<style>
+  :root {
+    --ink: #1f1d1b;
+    --muted: #6b6560;
+    --faint: #938c85;
+    --rule: #ded9d2;
+    --bg: #fdfcfa;
+    --panel: #f6f3ee;
+    --accent: #2f5d50;
+    --rust: #9c5424;
+    --danger: #a0171c;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    padding: 3rem 2rem 6rem;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 Charter, Georgia, "Times New Roman", serif;
+  }
+  main { max-width: 62rem; margin: 0 auto; }
+  h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 .35rem; letter-spacing: -.01em; }
+  h2 {
+    font-size: 1.15rem; margin: 3.5rem 0 .4rem; padding-bottom: .35rem;
+    border-bottom: 1px solid var(--rule); letter-spacing: .01em;
+  }
+  h2 .num { color: var(--faint); font-weight: 400; margin-right: .5rem; }
+  h3 { font-size: .95rem; margin: 2rem 0 .3rem; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
+  p { margin: .55rem 0; }
+  .lede { color: var(--muted); max-width: 46rem; }
+  .meta { color: var(--faint); font-size: .8rem; margin-top: 1rem; }
+  code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; }
+  table { width: 100%; border-collapse: collapse; margin: .9rem 0 .4rem; font-size: .9rem; }
+  caption { text-align: left; color: var(--muted); font-size: .84rem; padding-bottom: .5rem; }
+  th, td { text-align: left; padding: .5rem .7rem .5rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); font-weight: 600; border-bottom: 1.5px solid var(--ink);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; padding-right: 1.2rem; font-variant-numeric: tabular-nums; }
+  .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .absent { color: var(--danger); font-style: italic; }
+  .ci, .floor, .n { color: var(--muted); font-size: .82rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .dim { color: var(--faint); }
+  .note { color: var(--muted); font-size: .82rem; display: block; margin-top: .1rem; }
+  .tagline { color: var(--faint); font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; }
+  .banner {
+    border: 1.5px solid var(--danger); border-left-width: 6px; background: #fdf4f3;
+    padding: .9rem 1.1rem; margin: 1.6rem 0; color: var(--danger);
+  }
+  .banner strong { letter-spacing: .08em; }
+  .banner p { color: #6d2226; margin: .3rem 0 0; font-size: .9rem; }
+  .panel { background: var(--panel); border: 1px solid var(--rule); padding: 1rem 1.2rem; margin: 1rem 0; }
+  .panel p:first-child { margin-top: 0; }
+  .panel p:last-child { margin-bottom: 0; }
+  figure { margin: 1.2rem 0 .5rem; }
+  figure svg { max-width: 100%; height: auto; display: block; }
+  figcaption { color: var(--muted); font-size: .84rem; margin-top: .5rem; }
+  details { margin: .5rem 0 0; font-size: .88rem; }
+  summary { cursor: pointer; color: var(--muted); font-size: .84rem; }
+  .pill {
+    display: inline-block; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em;
+    border: 1px solid var(--rule); border-radius: 2px; padding: .05rem .35rem; color: var(--muted);
+    vertical-align: .1em; margin-left: .35rem;
+  }
+  .pill.gated { border-color: var(--accent); color: var(--accent); }
+  .pill.db { border-color: var(--rust); color: var(--rust); }
+  .ex { border-left: 3px solid var(--rule); padding: 0 0 0 1rem; margin: 1.2rem 0; }
+  .ex blockquote { margin: .4rem 0 0; color: var(--muted); font-size: .9rem; }
+  dl.kv { display: grid; grid-template-columns: minmax(9rem, max-content) 1fr; gap: .25rem 1.2rem; margin: .6rem 0; font-size: .88rem; }
+  dl.kv dt { color: var(--muted); }
+  dl.kv dd { margin: 0; word-break: break-word; }
+  footer { margin-top: 4rem; padding-top: 1rem; border-top: 1px solid var(--rule); color: var(--faint); font-size: .8rem; }
+  @media print {
+    body { padding: 0; font-size: 11pt; background: #fff; }
+    h2 { page-break-after: avoid; }
+    figure, table, .ex { page-break-inside: avoid; }
+    details { display: block; }
+    details > summary { display: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<p class="tagline">Synthetic evaluation harness &mdash; conversational intake</p>
+<h1>Extraction quality report</h1>
+<p class="lede">
+  Every figure below is computed from the run's scored artifacts. Nothing is typed
+  by hand, nothing is estimated, and a metric the scorer did not compute is shown
+  as <span class="absent">n/a</span> rather than as zero.
+</p>
+<p class="meta">
+  {% if tag %}tag <code>{{ tag }}</code> &middot; {% endif %}
+  {% if run_id %}run <code>{{ run_id }}</code> &middot; {% endif %}
+  {% if headline_noise_rate is not none %}headline figures at noise rate {{ '%.0f'|format(headline_noise_rate * 100) }}% &middot; {% endif %}
+  rendered {{ generated_at }}
+</p>
+
+{% if judge.degraded %}
+<div class="banner">
+  <strong>DEGRADED</strong> &mdash; the pooled judge error rate is
+  {{ judge.metric.value_text }}, above the {{ judge.threshold_text }} threshold.
+  <p>
+    Judged-field precision and recall below should not be trusted at this error rate.
+    Judge errors are excluded from every denominator, so they do not show up as bad
+    scores &mdash; they show up here.
+  </p>
+</div>
+{% endif %}
+
+<h2><span class="num">1</span>Headline numbers</h2>
+<p class="lede">
+  Rates carry a 95% Wilson interval; the measured noise floor is printed beside every
+  gated metric. The harness does not claim deterministic model output &mdash; it measures
+  run-to-run variance and gates only beyond it.
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>metric</th>
+      <th class="num">value</th>
+      <th class="num">n</th>
+      <th>95% interval</th>
+      <th>measured floor</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for m in headline %}
+    <tr>
+      <td>
+        {{ m.label }}{% if m.gated %}<span class="pill gated">gated</span>{% endif %}
+        {% if m.note %}<span class="note">{{ m.note }}</span>{% endif %}
+      </td>
+      <td class="num">{{ value(m) }}</td>
+      <td class="num"><span class="n">{{ m.n_cell }}</span></td>
+      <td>{{ interval(m) }}</td>
+      <td>{{ floor(m) }}</td>
+    </tr>
+  {% endfor %}
+  {% if audit is none %}
+    <tr>
+      <td>
+        Audit agreement
+        <span class="note">hand-labelled sample of judged alignments (<code>lab audit</code>)</span>
+      </td>
+      <td class="num"><strong class="absent">{{ not_audited }}</strong></td>
+      <td class="num"><span class="n">n/a</span></td>
+      <td><span class="ci dim">no labels found</span></td>
+      <td></td>
+    </tr>
+  {% endif %}
+  </tbody>
+</table>
+{% if audit is none %}
+<div class="panel">
+  <p>
+    <strong class="absent">{{ not_audited }}.</strong> No hand-filled labels were found,
+    so no agreement rate is printed. A placeholder number here would be worse than a
+    missing one: the judge shares a model with the system under test, so its agreement
+    with a human is the only check on it.
+  </p>
+</div>
+{% else %}
+<p class="meta">
+  Audit agreement from {{ audit.agreed }}/{{ audit.labeled }} hand-filled labels
+  ({{ audit.sampled }} sampled{% if audit.source %}, {{ audit.source }}{% endif %}).
+  Labels are keyed by content hash, not list position, so they survive a resample.
+</p>
+{% endif %}
+
+<h3>Exact-scored fields against the majority-class floor</h3>
+<p class="lede">
+  Exact-field recall on its own is not evidence: a model that always answered the most
+  common class would score the floor. The lift is the part that means something.
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>field</th>
+      <th class="num">recall</th>
+      <th class="num">n</th>
+      <th class="num">majority-class floor</th>
+      <th class="num">lift over floor</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in exact_floor_rows %}
+    <tr>
+      <td><code>{{ row.field }}</code></td>
+      <td class="num">{{ value(row.recall) }}</td>
+      <td class="num"><span class="n">{{ row.recall.n_cell }}</span></td>
+      <td class="num">{{ value(row.floor) }}</td>
+      <td class="num">{% if row.lift is not none %}<span class="v">{{ row.lift_text }}</span>{% else %}<span class="absent">n/a</span>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h3>Health statistics &mdash; not gates</h3>
+<p class="lede">
+  Judge reliability and the simulator's own self-report check. These describe how much
+  the measurement can be trusted; none of them fails a build. The disclosure checks
+  audit <code>disclosed_fact_ids</code>, which is ground truth for every recall and
+  yield number above and so is itself checked rather than taken on trust.
+</p>
+<table>
+  <thead>
+    <tr>
+      <th>statistic</th>
+      <th class="num">value</th>
+      <th class="num">n</th>
+      <th>95% interval</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for m in health %}
+    <tr>
+      <td>{{ m.label }}{% if m.note %}<span class="note">{{ m.note }}</span>{% endif %}</td>
+      <td class="num">{{ value(m) }}</td>
+      <td class="num"><span class="n">{{ m.n_cell }}</span></td>
+      <td>{{ interval(m) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<dl class="kv">
+  {% for key in ['calls', 'judged_claims', 'errors', 'span_invalid', 'span_invalid_first_pass'] %}
+  <dt><code>judge.{{ key }}</code></dt>
+  <dd>{% if judge.raw.get(key) is not none %}{{ judge.raw.get(key) }}{% else %}<span class="absent">n/a</span>{% endif %}</dd>
+  {% endfor %}
+</dl>
+
+<h2><span class="num">2</span>Per-field precision and recall</h2>
+<table>
+  <caption>
+    Unscored fields ({{ unscored_fields | join(', ') }}) produce no claims and are not
+    in this table. A field with no row value was never claimed or never had a truth fact.
+  </caption>
+  <thead>
+    <tr>
+      <th>field</th>
+      <th class="num">precision</th>
+      <th class="num">n</th>
+      <th>interval</th>
+      <th class="num">recall</th>
+      <th class="num">n</th>
+      <th>interval</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in field_rows %}
+    <tr>
+      <td>
+        <code>{{ row.field }}</code>
+        {% if row.exact %}<span class="pill">exact</span>{% endif %}
+        {% if row.dealbreaker %}<span class="pill db">dealbreaker</span>{% endif %}
+      </td>
+      <td class="num">{{ value(row.precision) }}</td>
+      <td class="num"><span class="n">{{ row.precision.n_cell }}</span></td>
+      <td>{{ interval(row.precision) }}</td>
+      <td class="num">{{ value(row.recall) }}</td>
+      <td class="num"><span class="n">{{ row.recall.n_cell }}</span></td>
+      <td>{{ interval(row.recall) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2><span class="num">3</span>Per-question yield</h2>
+<p class="lede">
+  Captured facts per minute of interview &mdash; the speed-versus-richness answer.
+  Interviewer words count: this measures interview time, not speaking time. Word counts
+  come from the clean source transcript, so adding ASR noise cannot move the ratio.
+  <strong>No interval</strong> on this one: it is a ratio, not a proportion, and Wilson
+  does not apply.
+</p>
+{% if yield_section.chart %}
+<figure>
+{{ yield_section.chart | safe }}
+  <figcaption>
+    Pooled follow-up share: {{ yield_section.followup_share.value_text }}
+    ({{ yield_section.followup_share.n_text }}) of captured facts arrived via a follow-up.
+    {% if yield_section.followup_marked %}
+      The hatched portion of each bar is that question's own follow-up share.
+    {% else %}
+      No per-question follow-up share was recorded, so the bars are not subdivided
+      rather than subdivided by an estimate.
+    {% endif %}
+  </figcaption>
+</figure>
+{% else %}
+<p class="absent">No per-question yield in the aggregate; nothing to chart.</p>
+{% endif %}
+<details open>
+  <summary>Per-question figures (the chart's own data; also the fallback if the SVG does not render)</summary>
+  <table>
+    <thead>
+      <tr>
+        <th>question</th>
+        <th class="num">captured facts</th>
+        <th class="num">facts per minute</th>
+        <th class="num">interview words</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in yield_section.rows %}
+      <tr>
+        <td><code>{{ row.question_id }}</code></td>
+        <td class="num">{{ value(row.count) }}</td>
+        <td class="num">{{ value(row.per_minute) }}</td>
+        <td class="num"><span class="n">{{ row.per_minute.n_cell }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</details>
+
+<h3>Follow-up share by conversational style</h3>
+<p class="lede">
+  Broken out because the follow-up share is largely a function of the style mix: a terse
+  persona answers under the word trigger and gets followed up on every question, while a
+  rambling one never trips it. The style mix for this run is in the manifest.
+</p>
+<table>
+  <thead>
+    <tr><th>style</th><th class="num">follow-up share</th><th class="num">n</th><th>interval</th></tr>
+  </thead>
+  <tbody>
+  {% if yield_section.by_style %}
+    {% for m in yield_section.by_style %}
+    <tr>
+      <td><code>{{ m.label }}</code></td>
+      <td class="num">{{ value(m) }}</td>
+      <td class="num"><span class="n">{{ m.n_cell }}</span></td>
+      <td>{{ interval(m) }}</td>
+    </tr>
+    {% endfor %}
+  {% else %}
+    <tr><td colspan="4"><span class="absent">no per-style follow-up share in the aggregate</span></td></tr>
+  {% endif %}
+  </tbody>
+</table>
+
+<h2><span class="num">4</span>Quality against transcription noise</h2>
+<p class="lede">
+  Extraction quality as ASR error rises &mdash; the concrete argument in a voice-native
+  migration. Only the clean level is gated by the diff; the rest are reported.
+</p>
+{% if noise.chart %}
+<figure>
+{{ noise.chart | safe }}
+  <figcaption>
+    Precision and pipeline recall against the share of user words edited. A level whose
+    metric was not computed is skipped rather than drawn at zero.
+  </figcaption>
+</figure>
+{% else %}
+<p class="absent">No noise sweep in the aggregate; nothing to chart.</p>
+{% endif %}
+<details open>
+  <summary>Noise curve figures (the chart's own data; also the fallback if the SVG does not render)</summary>
+  <table>
+    <thead>
+      <tr>
+        <th>noise rate</th>
+        <th class="num">precision</th>
+        <th>interval</th>
+        <th class="num">recall (pipeline)</th>
+        <th class="num">recall (extraction)</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in noise.rows %}
+      <tr>
+        <td>{{ row.rate_text }}{% if row.gated %}<span class="pill gated">gated</span>{% endif %}</td>
+        <td class="num">{{ value(row.precision) }}</td>
+        <td>{{ interval(row.precision) }}</td>
+        <td class="num">{{ value(row.recall) }}</td>
+        <td class="num">{{ value(row.recall_elicited) }}</td>
+      </tr>
+    {% endfor %}
+    {% if not noise.rows %}
+      <tr><td colspan="5"><span class="absent">no noise levels in the aggregate</span></td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+</details>
+
+<h2><span class="num">5</span>Recall by disclosure type</h2>
+<table>
+  <caption>
+    How the persona was written to behave. A <code>needs_followup</code> fact that no
+    follow-up probed was never disclosed, so extraction could not have captured it &mdash;
+    which is why pipeline and extraction recall are reported separately above. A
+    <code>hedge</code> fact counts as captured when it is matched at <em>generic</em>
+    specificity; without that rule the row reads near zero for a reason that has nothing
+    to do with extraction.
+  </caption>
+  <thead>
+    <tr><th>disclosure</th><th class="num">recall</th><th class="num">n</th><th>interval</th></tr>
+  </thead>
+  <tbody>
+  {% for row in disclosure_rows %}
+    <tr>
+      <td><code>{{ row.disclosure }}</code></td>
+      <td class="num">{{ value(row.recall) }}</td>
+      <td class="num"><span class="n">{{ row.recall.n_cell }}</span></td>
+      <td>{{ interval(row.recall) }}</td>
+    </tr>
+  {% endfor %}
+  {% if not disclosure_rows %}
+    <tr><td colspan="4"><span class="absent">no per-disclosure recall in the aggregate</span></td></tr>
+  {% endif %}
+  </tbody>
+</table>
+
+<h2><span class="num">6</span>Hallucination examples</h2>
+<p class="lede">
+  Up to {{ max_examples }} claims judged <code>unsupported</code>: the extraction asserted
+  something the truth sheet does not contain and no user turn supports. The closest user
+  turn is printed beside each one, because the only way to check a hallucination is to
+  read the transcript next to it.
+</p>
+{% if hallucinations %}
+  {% for ex in hallucinations %}
+  <div class="ex">
+    <p>
+      <code>{{ ex.field }}</code>
+      {% if ex.persona_id %}<span class="pill">{{ ex.persona_id }}</span>{% endif %}
+      {% if ex.claim_id %}<span class="pill">{{ ex.claim_id }}</span>{% endif %}
+      <br>
+      claimed: <strong>{{ ex.claimed_value if ex.claimed_value is not none else 'n/a' }}</strong>
+    </p>
+    {% if ex.turn_text %}
+    <blockquote>
+      &ldquo;{{ ex.turn_text }}&rdquo;
+      <span class="note">
+        closest user turn{% if ex.turn_id %} <code>{{ ex.turn_id }}</code>{% endif %}{% if ex.question_id %}, question <code>{{ ex.question_id }}</code>{% endif %}
+      </span>
+    </blockquote>
+    {% else %}
+    <p class="absent">no nearby user turn recorded for this claim</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+<p class="lede">
+  No <code>unsupported</code> examples in the aggregate. That is an absence of recorded
+  examples, not a demonstration that there are none &mdash; read the hallucination rate above.
+</p>
+{% endif %}
+
+<h2><span class="num">7</span>Run manifest</h2>
+{% if manifest.excluded_text %}
+<div class="panel">
+  <p><strong class="absent">{{ manifest.excluded_text }}</strong></p>
+  <p>
+    Excluded from every precision denominator and counted as zero recall. Silently
+    dropping them would change every number above, so they are counted here.
+  </p>
+</div>
+{% endif %}
+<h3>Personas</h3>
+<dl class="kv">
+  {% for key in ['requested', 'ok', 'failed', 'schema_invalid'] %}
+  <dt>{{ key }}</dt>
+  <dd>{% if manifest.personas.get(key) is not none %}{{ manifest.personas.get(key) }}{% else %}<span class="absent">n/a</span>{% endif %}</dd>
+  {% endfor %}
+</dl>
+<h3>Style mix</h3>
+{% if manifest.style_mix %}
+<dl class="kv">
+  {% for style, count in manifest.style_mix %}
+  <dt><code>{{ style }}</code></dt><dd>{{ count }}</dd>
+  {% endfor %}
+</dl>
+{% else %}
+<p class="absent">no style mix in the manifest</p>
+{% endif %}
+<h3>Models and parameters</h3>
+{% if manifest.models or manifest.role_params %}
+<dl class="kv">
+  {% for role, model in manifest.models | dictsort %}
+  <dt><code>{{ role }}</code></dt><dd><code>{{ model }}</code></dd>
+  {% endfor %}
+  {% for role, params in manifest.role_params | dictsort %}
+  <dt><code>{{ role }}</code> params</dt>
+  <dd><code>{{ params }}</code></dd>
+  {% endfor %}
+</dl>
+{% else %}
+<p class="absent">no model record in the manifest</p>
+{% endif %}
+<h3>Input hashes</h3>
+{% if manifest.hashes %}
+<dl class="kv">
+  {% for name, digest in manifest.hashes | dictsort %}
+  <dt><code>{{ name }}</code></dt><dd class="mono">{{ digest }}</dd>
+  {% endfor %}
+</dl>
+{% else %}
+<p class="absent">no input hashes in the manifest</p>
+{% endif %}
+{% if manifest.tags %}
+<h3>Tags</h3>
+<table>
+  <caption>
+    A tag reused with a changed prompt, schema, model, or effort is an error, not a
+    silent overwrite: the worst available failure is comparing a baseline against a
+    candidate quietly regenerated with the candidate's own prompt.
+  </caption>
+  <thead><tr><th>tag</th><th>recorded identity</th></tr></thead>
+  <tbody>
+  {% for name, ident in manifest.tags | dictsort %}
+    <tr>
+      <td><code>{{ name }}</code></td>
+      <td class="mono">{{ ident }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+<h3>Seeds</h3>
+<p class="lede">
+  Python-side seeds only (<code>random.Random(seed)</code>) &mdash; skeleton sampling,
+  noise, question order, audit sampling. The Messages API has no seed parameter and none
+  is sent.
+</p>
+{% if manifest.seeds %}
+<dl class="kv">
+  {% for name, seed in manifest.seeds | dictsort %}
+  <dt><code>{{ name }}</code></dt><dd>{{ seed }}</dd>
+  {% endfor %}
+</dl>
+{% else %}
+<p class="absent">no seeds in the manifest</p>
+{% endif %}
+<h3>Token usage</h3>
+{% if manifest.usage %}
+<dl class="kv">
+  {% for name, count in manifest.usage | dictsort %}
+  <dt><code>{{ name }}</code></dt><dd>{{ '{:,}'.format(count) if count is number else count }}</dd>
+  {% endfor %}
+</dl>
+{% else %}
+<p class="absent">no token usage in the manifest</p>
+{% endif %}
+<h3>Provenance</h3>
+<dl class="kv">
+  <dt>run id</dt><dd><code>{{ run_id if run_id else 'n/a' }}</code></dd>
+  <dt>code version</dt><dd><code>{{ manifest.raw.get('code_version', 'n/a') }}</code></dd>
+  <dt>started</dt><dd>{{ manifest.raw.get('created_at', 'n/a') }}</dd>
+  <dt>finished</dt><dd>{{ manifest.raw.get('finished_at', 'n/a') }}</dd>
+  <dt>noise rates</dt><dd><code>{{ manifest.raw.get('noise_rates', 'n/a') }}</code></dd>
+  <dt>floor runs</dt><dd>{{ manifest.raw.get('floor_runs', 'n/a') }}</dd>
+  <dt>report rendered</dt><dd>{{ generated_at }}</dd>
+</dl>
+
+<footer>
+  <p>
+    Gated metrics: {% for k in gated_keys %}<code>{{ k }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+    Everything else is reported and not gated.
+  </p>
+  <p>
+    Intervals are pooled 95% Wilson intervals and ignore persona clustering. Synthetic
+    users are not real users; this complements audits of real transcripts rather than
+    replacing them. The judge and the system under test currently share a model, so the
+    judge cannot catch failure modes it shares.
+  </p>
+</footer>
+
+</main>
+</body>
+</html>
