@@ -22,10 +22,14 @@ ground truth, and it runs without touching production or user data.
 
 ## Status
 
-**Phase 0 complete: contracts frozen, no pipeline yet.** The models, CLI surface,
-provider interface, cache, and artifact layout are in place and tested; the six
-pipeline stages land in Phase 1. Unbuilt commands exit 2 and say so rather than
-printing anything.
+**Code complete, no committed run yet.** All six stages, the orchestrator, and
+every CLI command are implemented, and the full suite (`ruff` + `pytest`) passes
+on a cold clone with no API key and no network.
+
+What is *not* here is a run. No fixture set has been generated and committed, so
+there are no numbers in the Results section below, `make demo` fails, and
+`baselines/` is empty. Reproducing the measurements needs an API key; reading and
+replicating the code does not.
 
 ## Results
 
@@ -62,8 +66,38 @@ make smoke                      # one real request per role, validates parameter
 make dev                        # 3 personas, one noise level
 ```
 
-`make demo` renders the report from committed fixtures with no API key and no
-network, so a reviewer never has to spend money to see the output.
+`make demo` is intended to render the report from committed fixtures with no API
+key and no network, so a reviewer never has to spend money to see the output. It
+does not work on a fresh clone yet: no fixture set has been generated, so the
+command exits with `no aggregate at fixtures/scores/v1/aggregate.json`. Generate
+one with `make numbers` (needs a key) before relying on it.
+
+## Replicating this repo on another machine
+
+Everything needed to rebuild and run the code is committed; `uv.lock` pins every
+dependency. On a clean machine:
+
+```bash
+git clone https://github.com/vaibhavhariram/onboarding-lab.git
+cd onboarding-lab
+make setup                      # uv sync, from the committed lock file
+env -u ANTHROPIC_API_KEY make test
+```
+
+That is the whole cold-start path, and it is the gate: the suite passes with no
+API key and no network, backed by a deterministic `FakeProvider`. Read
+`CLAUDE.md` first for the working agreement, then `PLAN.md` for the build order,
+then `docs/SPEC.md` for the reference design — every `§` in `PLAN.md` resolves
+there, and where the two disagree, `PLAN.md` wins.
+
+Three things are deliberately absent and are not recoverable from the repo:
+
+- **A key.** `cp .env.example .env` and set `LAB_ANTHROPIC_API_KEY`. The lab never
+  reads `ANTHROPIC_API_KEY`. Only `make smoke`, `make dev`, `make numbers`, and
+  `make audit` need it.
+- **Fixtures and baselines.** `fixtures/` and `baselines/` are empty, so
+  `make demo` and `lab diff` have nothing to read until a run is committed.
+- **CI.** `.github/` is empty; the workflow is item 2 in the cut order.
 
 ## Adoption
 
