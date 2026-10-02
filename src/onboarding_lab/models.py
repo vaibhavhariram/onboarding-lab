@@ -468,6 +468,20 @@ class JudgeHealth(BaseModel):
     span_invalid: int
     span_invalid_first_pass: int = 0
 
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_derived(cls, data):
+        """Discard ``error_rate`` and ``degraded`` on input.
+
+        They are computed fields, so they serialise *out* — which means a score
+        file round-trips through them on the way back in. Dropping rather than
+        rejecting keeps the artifact re-readable while still making it
+        impossible for a caller to assert its own error rate or degraded flag.
+        """
+        if isinstance(data, dict):
+            return {k: v for k, v in data.items() if k not in ("error_rate", "degraded")}
+        return data
+
     @computed_field
     @property
     def error_rate(self) -> float:

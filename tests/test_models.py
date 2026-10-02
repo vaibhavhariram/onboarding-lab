@@ -289,10 +289,27 @@ def test_judge_health_is_derived_not_supplied() -> None:
     h = JudgeHealth(calls=10, judged_claims=100, errors=3, span_invalid=3)
     assert h.error_rate == pytest.approx(0.06)
     assert h.degraded is True
-    with pytest.raises(ValidationError):
-        JudgeHealth.model_validate(
-            {"calls": 10, "judged_claims": 100, "errors": 0, "span_invalid": 0, "degraded": False}
-        )
+    # A supplied value is discarded, not honoured: the flag is always recomputed
+    # from the counts. Dropping rather than rejecting keeps score files
+    # re-readable, since the computed fields serialise out.
+    lying = JudgeHealth.model_validate(
+        {
+            "calls": 10,
+            "judged_claims": 100,
+            "errors": 6,
+            "span_invalid": 0,
+            "error_rate": 0.0,
+            "degraded": False,
+        }
+    )
+    assert lying.degraded is True
+    assert lying.error_rate == pytest.approx(0.06)
+
+
+def test_judge_health_round_trips_through_json() -> None:
+    """Scores files are written and read back, so this must survive a round trip."""
+    h = JudgeHealth(calls=3, judged_claims=40, errors=1, span_invalid=1)
+    assert JudgeHealth.model_validate_json(h.model_dump_json()) == h
 
 
 def test_degraded_threshold_is_strictly_above_five_percent() -> None:

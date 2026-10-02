@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -20,6 +21,7 @@ import typer
 from . import paths, role_schemas
 from .config import Config, api_key
 from .models import Role
+from .paths import RunPaths
 from .providers.base import Message
 
 app = typer.Typer(
@@ -120,7 +122,23 @@ def report(
     ] = False,
 ) -> None:
     """Render the HTML report and Markdown summary."""
-    _pending("report", 3)
+    from .report.render import load_aggregate, write_report
+
+    if from_fixtures:
+        source = Path("fixtures/scores") / tag / "aggregate.json"
+        out_dir = Path("report") / tag
+    else:
+        paths = RunPaths.for_run(_resolve_run(run))
+        source = paths.aggregate(tag)
+        out_dir = paths.report(tag)
+
+    if not source.is_file():
+        typer.secho(f"no aggregate at {source}", fg="red", err=True)
+        raise typer.Exit(code=2)
+
+    written = write_report(load_aggregate(source), out_dir)
+    typer.echo(f"report for {tag}: {written['index.html']}")
+    typer.echo(f"summary for {tag}: {written['summary.md']}")
 
 
 @app.command()
@@ -132,7 +150,36 @@ def diff(
     from_fixtures: Annotated[bool, typer.Option("--from-fixtures")] = False,
 ) -> None:
     """Compare a candidate against a baseline. Exit 1 on regression beyond the floor."""
-    _pending("diff", 3)
+    from .report.render import load_aggregate, write_diff
+    from .score.floor import diff as compute_diff
+
+    root = Path("fixtures/scores") if from_fixtures else None
+    if root is None:
+        paths = RunPaths.for_run(_resolve_run(run))
+        base_path, cand_path = paths.aggregate(baseline), paths.aggregate(candidate)
+        out_dir = paths.report(candidate)
+    else:
+        base_path = root / baseline / "aggregate.json"
+        cand_path = root / candidate / "aggregate.json"
+        out_dir = Path("report") / candidate
+
+    for path in (base_path, cand_path):
+        if not path.is_file():
+            typer.secho(f"no aggregate at {path}", fg="red", err=True)
+            raise typer.Exit(code=2)
+
+    base, cand = load_aggregate(base_path), load_aggregate(cand_path)
+    result = compute_diff(
+        baseline=base.get("metrics", {}),
+        candidate=cand.get("metrics", {}),
+        floors=base.get("floor", {}),
+    )
+    payload = result.to_dict() if hasattr(result, "to_dict") else dict(result.__dict__)
+    written = write_diff(payload, out_dir, baseline=baseline, candidate=candidate)
+    typer.echo(f"diff {baseline} -> {candidate}: exit {result.exit_code}; wrote {written}")
+    if result.invalid_reason:
+        typer.secho(result.invalid_reason, fg="red", err=True)
+    raise typer.Exit(code=result.exit_code)
 
 
 @app.command()
@@ -140,7 +187,22 @@ def run(
     config: Annotated[str, typer.Option("--config")] = "lab.yaml",
 ) -> None:
     """Run the whole pipeline: gen, sim, noise, extract, score, report."""
-    _pending("run", 1)
+    from .pipeline import run_pipeline
+    from .providers.anthropic import AnthropicProvider
+
+    cfg = Config.load(config)
+    model = cfg.models.default
+    provider = AnthropicProvider(api_key=api_key(), model=model)
+    outcome = asyncio.run(run_pipeline(cfg, provider=provider, model=model))
+
+    typer.echo(
+        f"run {outcome.run_id}: {len(outcome.sheets)}/{cfg.personas} personas, "
+        f"{len(outcome.aggregates)} tag(s), {outcome.failures} failure record(s)"
+    )
+    for tag in sorted(outcome.aggregates):
+        typer.echo(f"  wrote {outcome.paths.aggregate(tag)}")
+    if outcome.failures:
+        typer.secho(f"  failures logged: {outcome.paths.failures}", fg="yellow")
 
 
 # --------------------------------------------------------------------------- #

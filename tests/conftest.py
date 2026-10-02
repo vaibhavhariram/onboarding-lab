@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from onboarding_lab.config import API_KEY_VAR, FORBIDDEN_KEY_VAR
 from onboarding_lab.models import (
     Alignment,
     Claim,
@@ -22,6 +23,38 @@ from onboarding_lab.models import (
     Turn,
     word_count,
 )
+
+
+@pytest.fixture(autouse=True)
+def _no_credentials_and_no_network(monkeypatch):
+    """Make `make test` structurally unable to reach the network.
+
+    Two separate holes, both closed here:
+
+    1. ``config.load_dotenv`` writes into the real ``os.environ``. ``monkeypatch``
+       only reverts variables it set itself, so a test that exercises ``.env``
+       loading used to leak a credential into every later test in the process --
+       and on a machine with a real ``.env`` that meant `make test` would build a
+       live client and spend money.
+    2. Even with no credential, nothing should be able to construct a real
+       client by accident. Any attempt raises instead.
+
+    A test that deliberately sets a key still works: its own ``monkeypatch``
+    applies after this fixture.
+    """
+    for var in (API_KEY_VAR, FORBIDDEN_KEY_VAR):
+        monkeypatch.delenv(var, raising=False)
+
+    import anthropic
+
+    def _blocked(*args, **kwargs):
+        raise AssertionError(
+            "a test tried to construct a real Anthropic client; the suite must "
+            "run entirely on FakeProvider"
+        )
+
+    monkeypatch.setattr(anthropic, "AsyncAnthropic", _blocked)
+    monkeypatch.setattr(anthropic, "Anthropic", _blocked, raising=False)
 
 
 @pytest.fixture
